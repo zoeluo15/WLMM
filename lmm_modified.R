@@ -7,15 +7,12 @@
 #' of eigenvectors. If `Kva` and `Kve_t` provided, just do
 #' the "rotation".
 #'
-#' @param K Kinship matrix (required if `use_cpp=TRUE`)
+#' @param K Kinship matrix 
 #' @param y Phenotypes
 #' @param X Numeric matrix with covariates. If NULL, use a column
 #' of 1's (for intercept).
 #' @param pwt sampling probabilities
 #' @param R a vector of 0 and 1 indicates which individuals are selected for resequencing
-#' @param Kva Eigenvalues of `K` (optional, ignored if `use_cpp=TRUE`)
-#' @param Kve_t = transposed eigenvectors of K (optional, ignored if `use_cpp=TRUE`)
-#' @param use_cpp = if TRUE, use c++ version of code
 #'
 #' @export
 #' @return List containing `Kva`, `Kve_t` and rotated
@@ -25,18 +22,9 @@
 #' data(recla)
 #' e <- eigen_rotation(recla$kinship, recla$pheno[,1], recla$covar)
 eigen_rotation <-
-  function(K, y, pwt, R, X=NULL, Kva=NULL, Kve_t=NULL, use_cpp=FALSE)
+  function(K, y, pwt, R, X=NULL)
   {
     # check inputs
-    if(use_cpp || is.null(Kva) || is.null(Kve_t)) {
-      n <- nrow(K) # no. individuals
-      stopifnot(ncol(K) == n) # square?
-    }
-    else {
-      n <- nrow(Kve_t)
-      stopifnot(ncol(Kve_t) == n) # square?
-      stopifnot(length(Kva) == n)
-    }
     if(!is.matrix(y)) y <- as.matrix(y)
     stopifnot(nrow(y) == n)
     
@@ -47,11 +35,6 @@ eigen_rotation <-
     
     if(n==0) stop("need at least one individual")
     
-    if(use_cpp) {
-      result <- Rcpp_eigen_rotation(K, y, X)
-      attr(result$X, "logdetXpX") <- Rcpp_calc_logdetXpX(result$X)
-      return(result)
-    }
     
     if(is.null(Kva) || is.null(Kve_t)) {
       # calculate eigen vals and vecs
@@ -61,6 +44,7 @@ eigen_rotation <-
     }
     
     # weight phenotype and covaraite before rotation
+    # For now, we assume pij=pi*pj
     y <- R/pwt*y
     X <- R/pwt*X
     
@@ -83,8 +67,6 @@ eigen_rotation <-
 #' @param Kva eigenvalues of K (calculated by [eigen_rotation()])
 #' @param y rotated phenotypes (calculated by [eigen_rotation()])
 #' @param X rotated covariate matrix (calculated by [eigen_rotation()])
-#' @param reml If TRUE, use REML; otherwise use ordinary maximum likelihood.
-#' @param use_cpp = if TRUE, use c++ version of code
 #'
 #' @export
 #' @return list containing `beta` and `sigmasq`, with residual
@@ -96,7 +78,7 @@ eigen_rotation <-
 #' e <- eigen_rotation(recla$kinship, recla$pheno[,1], recla$covar)
 #' ml <- getMLsoln(0.5, e$Kva, e$y, e$X)
 getMLsoln <-
-  function(hsq, Kva, y, X, reml=FALSE, use_cpp=FALSE)
+  function(hsq, Kva, y, X)
   {
     n <- length(Kva)
     if(!is.matrix(X)) X <- as.matrix(X)
@@ -105,23 +87,9 @@ getMLsoln <-
     stopifnot(nrow(y) == n)
     p <- ncol(X)
     
-    #    if(use_cpp) {
-    #      result <- Rcpp_getMLsoln(hsq, Kva, y, X, reml)
-    #      tmp <- list(beta=result$beta, sigmasq=result$sigmasq)
-    #      attr(tmp, "rss") <- result$rss
-    #      if(reml) attr(tmp, "logdetXSX") <- result$logdetXSX
-    #      return(tmp)
-    #    }
     
     # diagonal matrix of weights
     S = 1/(hsq*Kva + 1-hsq)
-    
-    # calculate a bunch of matrices
-    #XSt = t(X * S)     # (XS)'
-    #ySt = t(y * S)     # (yS)'
-    #XSX = XSt %*% X    # (XS)'X
-    #XSy = XSt %*% y    # (XS)'y
-    #ySy = ySt %*% y    # (yS)'y
     
     ij<-subset(expand.grid(i=1:n,j=1:n), i<=j)
     ii<-ij[,1]
@@ -144,25 +112,17 @@ getMLsoln <-
     ## X^TWY
     xtwy <- crossprod(m*Xii,yS[jj])
     
-    # estimate of beta, by weighted LS
-    #e <- eigen(XSX)
-    #evals <- e$values
-    #evecs <- t(e$vectors)
-    #if(reml) logdetXSX <- sum(log(evals))
-    #beta <- t(evecs/evals) %*% evecs %*% XSy
     beta <- solve(xtwx,xtwy)
     
     # calculate a bunch of matrices and RSS
-    #rss <- ySy - t(XSy) %*% beta 
     rss <- crossprod(m*(y[ii]-Xii),yS[jj]-XSjj)
     
     # estimate of sigma^2 (total variance = sigma_g^2 + sigma_e^2)
-    sigmasq <- rss / (n - p) # why minus p?
+    sigmasq <- rss / (n - p) 
     
     # return value
     result <- list(beta=beta, sigmasq=sigmasq)
     attr(result, "rss") <- rss
-    #if(reml) attr(result, "logdetXSX") <- logdetXSX
     
     result
   }
@@ -177,8 +137,6 @@ getMLsoln <-
 #' @param X rotated covariate matrix (calculated by [eigen_rotation()])
 #' @param pwt sampling probabilities
 #' @param R a vector of 0 and 1 indicates which individuals are selected for resequencing
-#' @param reml If TRUE, use REML; otherwise use ordinary maximum likelihood.
-#' @param use_cpp = if TRUE, use c++ version of code
 #'
 #' @export
 #' @return The log likelihood value, with the corresponding estimates
@@ -190,24 +148,10 @@ getMLsoln <-
 #' loglik <- calcLL(0.5, e$Kva, e$y, e$X)
 #' many_loglik <- calcLL(seq(0, 1, by=0.1), e$Kva, e$y, e$X)
 calcLL <-
-  function(hsq, Kva, y, X, reml=FALSE, use_cpp=FALSE)
+  function(hsq, Kva, y, X)
   {
     if(length(hsq) > 1)
-      return(vapply(hsq, calcLL, 0, Kva, y, X, reml, use_cpp))
-    
-    #    if(use_cpp) {
-    #      logdetXpX <- NA
-    #      if(reml) {
-    #        logdetXpX <- attr(X, "logdetXpX")
-    #        if(is.null(logdetXpX))
-    #          logdetXpX <- Rcpp_calc_logdetXpX(X)
-    #      }
-    #      result <- Rcpp_calcLL(hsq, Kva, y, X, reml, logdetXpX)
-    #      tmp <- result$loglik
-    #      attr(tmp, "beta") <- result$beta
-    #      attr(tmp, "sigmasq") <- result$sigmasq
-    #      return(tmp)
-    #    }
+      return(vapply(hsq, calcLL, 0, Kva, y, X))
     
     n <- nrow(X)
     p <- ncol(X)
@@ -220,17 +164,6 @@ calcLL <-
     # calculate log likelihood
     rss <- attr(MLsoln, "rss")
     LL <- -0.5*(sum(log(hsq*Kva + 1-hsq)) + n*log(rss))
-    
-    #    if(reml) { # note that default is determinant() gives log det
-    #      logdetXpX <- attr(X, "logdetXpX")
-    #      if(is.null(logdetXpX)) { # need to calculate it
-    #        XpX <- t(X) %*% X
-    #        logdetXpX <- sum(log(eigen(XpX)$values))
-    #      }
-    #      
-    #      logdetXSX <- attr(MLsoln, "logdetXSX")
-    #      LL <- LL + 0.5 * (p*log(2*pi*sigmasq) + logdetXpX - logdetXSX)
-    #    }
     
     attr(LL, "beta") <- beta
     attr(LL, "sigmasq") <- sigmasq
@@ -247,10 +180,8 @@ calcLL <-
 #' @param Kva Eigenvalues of K (calculated by [eigen_rotation()])
 #' @param y Rotated phenotypes (calculated by [eigen_rotation()])
 #' @param X Rotated covariate matrix (calculated by [eigen_rotation()])
-#' @param reml If TRUE, use REML; otherwise use ordinary maximum likelihood.
 #' @param check_boundary If TRUE, explicitly check log likelihood at 0 and 1.
 #' @param tol Tolerance for convergence
-#' @param use_cpp = if TRUE, use c++ version of code
 #' @param compute_se = if TRUE, return the standard error of the `hsq`
 #' estimate using the Fisher Information matrix of the MLE estimate. The
 #' standard error will be in an `attr` of  `hsq` in the output.
@@ -275,7 +206,7 @@ calcLL <-
 #' c(hsq=wSE$hsq, SE=wSE$hsq_se)
 #'
 fitLMM <-
-  function(Kva, y, X, reml=TRUE, check_boundary=TRUE, tol=1e-4, use_cpp=TRUE, compute_se = FALSE)
+  function(Kva, y, X, check_boundary=TRUE, tol=1e-4, compute_se = FALSE)
   {
     n <- length(Kva)
     if(!is.matrix(X)) X <- as.matrix(X)
@@ -283,39 +214,15 @@ fitLMM <-
     if(!is.matrix(y)) y <- as.matrix(y)
     stopifnot(nrow(y) == n)
     
-    if(compute_se && use_cpp) {
-      use_cpp <- FALSE
-      warning("If compute_se=TRUE, we need to take use_cpp to be FALSE")
-    }
-    
-    if(use_cpp) {
-      logdetXpX <- NA
-      if(reml) logdetXpX <- Rcpp_calc_logdetXpX(X)
-      result <- Rcpp_fitLMM(Kva, y, X, reml, check_boundary, logdetXpX, tol)
-      return(list(beta=result$beta,
-                  sigmasq=result$sigmasq,
-                  hsq=result$hsq,
-                  sigmasq_g=result$hsq*result$sigmasq,
-                  sigmasq_e=(1-result$hsq)*result$sigmasq,
-                  loglik=result$loglik))
-    }
-    
-    # calculate log determinant of X'X matrix, so it's only done once
-    if(reml) {
-      XpX <- t(X) %*% X
-      attr(X, "logdetXpX") <- sum(log( eigen(XpX)$values ))
-    }
-    
     # maximize log likelihood
-    out <- stats::optimize(calcLL, c(0, 1), Kva=Kva, y=y, X=X, reml=reml, use_cpp=use_cpp,
-                           maximum=TRUE, tol=tol)
+    out <- stats::optimize(calcLL, c(0, 1), Kva=Kva, y=y, X=X, maximum=TRUE, tol=tol)
     
     # Use the hessian to get the stanard errors; had to use `optim` here...
     if(compute_se){
-      calcLL2 <- function(hsq, Kva, y, X, reml, use_cpp){
-        return(-1*calcLL(hsq, Kva, y, X, reml, use_cpp))
+      calcLL2 <- function(hsq, Kva, y, X){
+        return(-1*calcLL(hsq, Kva, y, X))
       }
-      opt2 <- optim(out$maximum, calcLL2, Kva=Kva, y=y, X=X, reml=reml, use_cpp=use_cpp,
+      opt2 <- optim(out$maximum, calcLL2, Kva=Kva, y=y, X=X,
                     hessian=TRUE, lower = 0, upper = 1, method = "Brent")
       vc <- solve(opt2$hessian) # var-cov matrix
       se <- sqrt(diag(vc))        # standard errors
