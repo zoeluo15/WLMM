@@ -156,7 +156,7 @@ calcLL <-
     p <- ncol(X)
     
     # estimate beta and sigmasq
-    MLsoln <- getMLsoln(hsq, Kva, y, X, reml=reml, use_cpp=use_cpp)
+    MLsoln <- getMLsoln(hsq, Kva, y, X)
     beta <- MLsoln$beta
     sigmasq <- MLsoln$sigmasq
     
