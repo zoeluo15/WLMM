@@ -1,0 +1,16 @@
+Package: wlmmlite
+Title: Fitting weighted LMM for QTL mapping
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Pei",
+           family = "Luo",
+           role = c("aut", "cre"),
+           email = "zoeluo15@yahoo.com",
+           comment = c(ORCID = "YOUR-ORCID-ID"))
+Description: This is a sampling-weighted version of lmmlite for fitting linear mixed models (modified from Karl Broman's R code).
+License: `use_mit_license()`, `use_gpl3_license()` or friends to
+    pick a license
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
