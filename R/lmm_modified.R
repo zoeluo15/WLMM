@@ -25,6 +25,8 @@ eigen_rotation <-
   function(K, y, pwt, R, X=NULL)
   {
     # check inputs
+    n <- nrow(K)
+    
     if(!is.matrix(y)) y <- as.matrix(y)
     stopifnot(nrow(y) == n)
     
