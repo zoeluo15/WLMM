@@ -37,13 +37,10 @@ eigen_rotation <-
     
     if(n==0) stop("need at least one individual")
     
-    
-    if(is.null(Kva) || is.null(Kve_t)) {
-      # calculate eigen vals and vecs
-      e <- eigen(K)
-      Kva <- e$values
-      Kve_t <- t(e$vectors)
-    }
+    # calculate eigen vals and vecs
+    e <- eigen(K)
+    Kva <- e$values
+    Kve_t <- t(e$vectors)
     
     # weight phenotype and covaraite before rotation
     # For now, we assume pij=pi*pj
