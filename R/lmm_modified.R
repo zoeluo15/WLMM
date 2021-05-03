@@ -20,8 +20,8 @@
 #'
 #' @examples
 #' data(recla)
-#' e <- eigen_rotation(recla$kinship, recla$pheno[,1], recla$covar)
-eigen_rotation <-
+#' e <- eigen_rotation2(recla$kinship, recla$pheno[,1], recla$covar)
+eigen_rotation2 <-
   function(K, y, pwt, R, X=NULL)
   {
     # check inputs
@@ -63,9 +63,9 @@ eigen_rotation <-
 #' `sigmasq_g + sigmasq_e`.
 #'
 #' @param hsq heritability
-#' @param Kva eigenvalues of K (calculated by [eigen_rotation()])
-#' @param y rotated phenotypes (calculated by [eigen_rotation()])
-#' @param X rotated covariate matrix (calculated by [eigen_rotation()])
+#' @param Kva eigenvalues of K (calculated by [eigen_rotation2()])
+#' @param y rotated phenotypes (calculated by [eigen_rotation2()])
+#' @param X rotated covariate matrix (calculated by [eigen_rotation2()])
 #'
 #' @export
 #' @return list containing `beta` and `sigmasq`, with residual
@@ -74,9 +74,9 @@ eigen_rotation <-
 #'
 #' @examples
 #' data(recla)
-#' e <- eigen_rotation(recla$kinship, recla$pheno[,1], recla$covar)
-#' ml <- getMLsoln(0.5, e$Kva, e$y, e$X)
-getMLsoln <-
+#' e <- eigen_rotation2(recla$kinship, recla$pheno[,1], recla$covar)
+#' ml <- getMLsoln2(0.5, e$Kva, e$y, e$X)
+getMLsoln2 <-
   function(hsq, Kva, y, X)
   {
     n <- length(Kva)
@@ -131,9 +131,9 @@ getMLsoln <-
 #' Calculate the log likelihood for a given value of the heritability, `hsq`.
 #'
 #' @param hsq heritability
-#' @param Kva eigenvalues of K (calculated by [eigen_rotation()])
-#' @param y rotated phenotypes (calculated by [eigen_rotation()])
-#' @param X rotated covariate matrix (calculated by [eigen_rotation()])
+#' @param Kva eigenvalues of K (calculated by [eigen_rotation2()])
+#' @param y rotated phenotypes (calculated by [eigen_rotation2()])
+#' @param X rotated covariate matrix (calculated by [eigen_rotation2()])
 #' @param pwt sampling probabilities
 #' @param R a vector of 0 and 1 indicates which individuals are selected for resequencing
 #'
@@ -143,20 +143,20 @@ getMLsoln <-
 #'
 #' @examples
 #' data(recla)
-#' e <- eigen_rotation(recla$kinship, recla$pheno[,1], recla$covar)
-#' loglik <- calcLL(0.5, e$Kva, e$y, e$X)
-#' many_loglik <- calcLL(seq(0, 1, by=0.1), e$Kva, e$y, e$X)
-calcLL <-
+#' e <- eigen_rotation2(recla$kinship, recla$pheno[,1], recla$covar)
+#' loglik <- calcLL2(0.5, e$Kva, e$y, e$X)
+#' many_loglik <- calcLL2(seq(0, 1, by=0.1), e$Kva, e$y, e$X)
+calcLL2 <-
   function(hsq, Kva, y, X)
   {
     if(length(hsq) > 1)
-      return(vapply(hsq, calcLL, 0, Kva, y, X))
+      return(vapply(hsq, calcLL2, 0, Kva, y, X))
     
     n <- nrow(X)
     p <- ncol(X)
     
     # estimate beta and sigmasq
-    MLsoln <- getMLsoln(hsq, Kva, y, X)
+    MLsoln <- getMLsoln2(hsq, Kva, y, X)
     beta <- MLsoln$beta
     sigmasq <- MLsoln$sigmasq
     
@@ -176,9 +176,9 @@ calcLL <-
 #' `sigmasq_g K + sigmasq_e I`, where `K` is a known kniship
 #' matrix and `I` is the identity matrix.
 #'
-#' @param Kva Eigenvalues of K (calculated by [eigen_rotation()])
-#' @param y Rotated phenotypes (calculated by [eigen_rotation()])
-#' @param X Rotated covariate matrix (calculated by [eigen_rotation()])
+#' @param Kva Eigenvalues of K (calculated by [eigen_rotation2()])
+#' @param y Rotated phenotypes (calculated by [eigen_rotation2()])
+#' @param X Rotated covariate matrix (calculated by [eigen_rotation2()])
 #' @param check_boundary If TRUE, explicitly check log likelihood at 0 and 1.
 #' @param tol Tolerance for convergence
 #' @param compute_se = if TRUE, return the standard error of the `hsq`
@@ -197,14 +197,14 @@ calcLL <-
 #'
 #' @examples
 #' data(recla)
-#' e <- eigen_rotation(recla$kinship, recla$pheno[,1], recla$covar)
-#' result <- fitLMM(e$Kva, e$y, e$X)
+#' e <- eigen_rotation2(recla$kinship, recla$pheno[,1], recla$covar)
+#' result <- fitLMM2(e$Kva, e$y, e$X)
 #'
 #' # also compute SE
-#' wSE <- fitLMM(e$Kva, e$y, e$X, compute_se = TRUE, use_cpp=FALSE)
+#' wSE <- fitLMM2(e$Kva, e$y, e$X, compute_se = TRUE, use_cpp=FALSE)
 #' c(hsq=wSE$hsq, SE=wSE$hsq_se)
 #'
-fitLMM <-
+fitLMM2 <-
   function(Kva, y, X, check_boundary=TRUE, tol=1e-4, compute_se = FALSE)
   {
     n <- length(Kva)
@@ -214,12 +214,12 @@ fitLMM <-
     stopifnot(nrow(y) == n)
     
     # maximize log likelihood
-    out <- stats::optimize(calcLL, c(0, 1), Kva=Kva, y=y, X=X, maximum=TRUE, tol=tol)
+    out <- stats::optimize(calcLL2, c(0, 1), Kva=Kva, y=y, X=X, maximum=TRUE, tol=tol)
     
     # Use the hessian to get the stanard errors; had to use `optim` here...
     if(compute_se){
       calcLL2 <- function(hsq, Kva, y, X){
-        return(-1*calcLL(hsq, Kva, y, X))
+        return(-1*calcLL2(hsq, Kva, y, X))
       }
       opt2 <- optim(out$maximum, calcLL2, Kva=Kva, y=y, X=X,
                     hessian=TRUE, lower = 0, upper = 1, method = "Brent")
