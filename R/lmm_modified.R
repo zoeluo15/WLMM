@@ -124,7 +124,7 @@ getMLsoln2 <-
     attr(result, "rss") <- rss
     
     #result
-    RSS
+    rss
   }
 
 #' Calculate log likelihood for a given heritability
