@@ -123,8 +123,7 @@ getMLsoln2 <-
     result <- list(beta=beta, sigmasq=sigmasq)
     attr(result, "rss") <- rss
     
-    #result
-    rss
+    result
   }
 
 #' Calculate log likelihood for a given heritability
