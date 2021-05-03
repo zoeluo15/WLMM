@@ -114,7 +114,7 @@ getMLsoln2 <-
     beta <- solve(xtwx,xtwy)
     
     # calculate a bunch of matrices and RSS
-    rss <- crossprod(m*(y[ii]-Xii),yS[jj]-XSjj)
+    rss <- crossprod(m*(y[ii]-Xii%*%beta),yS[jj]-XSjj%*%beta)
     
     # estimate of sigma^2 (total variance = sigma_g^2 + sigma_e^2)
     sigmasq <- rss / (n - p) 
