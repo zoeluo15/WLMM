@@ -88,7 +88,7 @@ getMLsoln2 <-
     
     
     # diagonal matrix of weights
-    S = 1/(hsq*Kva + 1-hsq)
+    S <- 1/(hsq*Kva + 1-hsq)
     
     ij<-subset(expand.grid(i=1:n,j=1:n), i<=j)
     ii<-ij[,1]
@@ -123,7 +123,8 @@ getMLsoln2 <-
     result <- list(beta=beta, sigmasq=sigmasq)
     attr(result, "rss") <- rss
     
-    result
+    #result
+    RSS
   }
 
 #' Calculate log likelihood for a given heritability
