@@ -44,12 +44,15 @@ eigen_rotation2 <-
     
     # weight phenotype and covaraite before rotation
     # For now, we assume pij=pi*pj
-    y <- R/pwt*y
-    X <- R/pwt*X
+    y <- 1/pwt*y
+    X <- 1/pwt*X
     
     # rotation
     y <- Kve_t %*% y
     X <- Kve_t %*% X
+    
+    y <- R*y
+    X <- R*X
     
     list(Kva=Kva, Kve_t=Kve_t, y=y, X=X)
   }
@@ -84,40 +87,37 @@ getMLsoln2 <-
     stopifnot(nrow(X) == n)
     if(!is.matrix(y)) y <- as.matrix(y)
     stopifnot(nrow(y) == n)
-    p <- ncol(X)
+    #p <- ncol(X)
     
     
     # diagonal matrix of weights
-    S <- 1/(hsq*Kva + 1-hsq)
+    W <- 1/(hsq*Kva + 1-hsq)
     
     ij<-subset(expand.grid(i=1:n,j=1:n), i<=j)
     ii<-ij[,1]
     jj<-ij[,2]
     
     m <- ifelse(ii==jj,1,2)
+    S <- rep(0, length(ii))
+    S[which(ii==jj)] <- W
     
     ## X and weighted X (XS) matrices for first and second element of each pair
     Xii <- X[ii,,drop=FALSE]
     Xjj <- X[jj,,drop=FALSE]
     
-    XS <- X * S
-    XSii <- XS[ii,,drop=FALSE]
-    XSjj <- XS[jj,,drop=FALSE]
-    yS <- y * S
-    
     ## X^TWX
-    xtwx <- crossprod(m*Xii,XSjj)
+    xtwx <- crossprod(m*Xii,Xjj*S)
     
     ## X^TWY
-    xtwy <- crossprod(m*Xii,yS[jj])
+    xtwy <- crossprod(m*Xii,y[jj]*S)
     
     beta <- solve(xtwx,xtwy)
     
     # calculate a bunch of matrices and RSS
-    rss <- crossprod(m*(y[ii]-Xii%*%beta),yS[jj]-XSjj%*%beta)
+    rss <- crossprod(m*(y[ii]-Xii%*%beta),y[jj]*S-(Xjj*S)%*%beta)
     
     # estimate of sigma^2 (total variance = sigma_g^2 + sigma_e^2)
-    sigmasq <- rss / (n - p) 
+    sigmasq <- rss / length(ii) 
     
     # return value
     result <- list(beta=beta, sigmasq=sigmasq)
@@ -153,7 +153,6 @@ calcLL2 <-
       return(vapply(hsq, calcLL2, 0, Kva, y, X))
     
     n <- nrow(X)
-    p <- ncol(X)
     
     # estimate beta and sigmasq
     MLsoln <- getMLsoln2(hsq, Kva, y, X)
