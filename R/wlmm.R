@@ -18,8 +18,8 @@
 #' sum of squares as attributes.
 #'
 #' @examples
-#' data(recla)
-#' ml <- getMLsoln(0.5, e$Kva, e$y, e$X)
+#' data(sim)
+#' ml <- getMLsoln(0.5, Phi, y, X, p, pwt, R)
 getMLsoln <-
   function(hsq, Phi, y, X, p, pwt, R)
   {
@@ -84,9 +84,9 @@ getMLsoln <-
 #' of `beta` and `sigmasq` included as attributes.
 #'
 #' @examples
-#' data(recla)
-#' loglik <- calcLL(0.5, e$Kva, e$y, e$X)
-#' many_loglik <- calcLL(seq(0, 1, by=0.1), e$Kva, e$y, e$X)
+#' data(sim)
+#' loglik <- calcLL(0.5, Phi, y, X, p, pwt, R)
+#' many_loglik <- calcLL(seq(0, 1, by=0.1), Phi, y, X, p, pwt, R)
 calcLL <-
   function(hsq, Phi, y, X, p, pwt, R)
   {
@@ -140,11 +140,11 @@ calcLL <-
 #' contains `hsq_se`.
 #'
 #' @examples
-#' data(recla)
-#' result <- fitLMM(e$Kva, e$y, e$X)
+#' data(sim)
+#' result <- fitLMM(Phi, y, X, p, pwt, R)
 #'
 #' # also compute SE
-#' wSE <- fitLMM(e$Kva, e$y, e$X, compute_se = TRUE, use_cpp=FALSE)
+#' wSE <- fitLMM(Phi, y, X, p, pwt, R, compute_se = TRUE, use_cpp=FALSE)
 #' c(hsq=wSE$hsq, SE=wSE$hsq_se)
 #'
 fitLMM <-
