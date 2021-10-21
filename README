@@ -1,1 +1,1 @@
-This is a sampling-weighted version of lmmlite for fitting linear mixed models (modified from Karl Broman's R code).
+WLMM is an R package for parameter estimation in linear mixed models under two-phase sampling using weighted maximum likelihood.
