@@ -77,7 +77,7 @@ getMLsoln <-
 #' @param X covariate matrix 
 #' @param p first-order sampling probability for all individuals
 #' @param pwt pairwise sampling probability for sampled individuals
-#' @param R sampling indicator (1 if sampled and 0 otherwise) for all individualsg
+#' @param R sampling indicator (1 if sampled and 0 otherwise) for all individuals
 #'
 #' @export
 #' @return The log likelihood value, with the corresponding estimates
@@ -114,7 +114,7 @@ calcLL <-
 #'
 #' Fit a linear mixed model of the form y = Xb + e where e follows a
 #' multivariate normal distribution with mean 0 and variance matrix
-#' `sigmasq_g K + sigmasq_e I`, where `K` is a known kniship
+#' `sigmasq_g K + sigmasq_e I`, where `K` is a known kinship
 #' matrix and `I` is the identity matrix.
 #'
 #' @param Phi relatedness matrix 
@@ -125,7 +125,7 @@ calcLL <-
 #' @param R sampling indicator (1 if sampled and 0 otherwise) for all individuals
 #' @param check_boundary If TRUE, explicitly check log likelihood at 0 and 1.
 #' @param tol Tolerance for convergence
-#' @param compute_se = if TRUE, return the standard error of the `hsq`
+#' @param compute_se if TRUE, return the standard error of the `hsq`
 #' estimate using the Fisher Information matrix of the MLE estimate. The
 #' standard error will be in an `attr` of  `hsq` in the output.
 #' Currently requires `use_cpp = FALSE`, and so if `compute_se=TRUE`
