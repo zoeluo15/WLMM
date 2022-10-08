@@ -1,186 +1,104 @@
 #' Get MLEs for coefficients and variance
 #'
-#' For a fixed value for `hsq`, the heritability, calculate the
-#' corresponding maximum likelihood estimates of `beta` and
-#' `sigmasq`, with the latter being the total variance,
-#' `sigmasq_g + sigmasq_e`.
+#' Calculate log likelihood for given parameters
 #'
-#' @param hsq heritability
-#' @param Phi relatedness matrix 
-#' @param y phenotypes 
-#' @param X covariate matrix 
-#' @param p first-order sampling probability for all individuals
-#' @param pwt pairwise sampling probability for sampled individuals
-#' @param R sampling indicator (1 if sampled and 0 otherwise) for all individuals
+#' @param param a 4x1 vector of population mean, genetic effect, 
+#' total phenotypic variance and heritability
+#' @param Phi a NxN kinship matrix for all phase 1 individuals
+#' @param y a Nx1 vector of phenotype for all phase 1 individuals
+#' @param X a Nx2 matrix, where the first column is 1 and the second 
+#' column is the genotypes (0, 1 or 2) for all phase 1 individuals
+#' @param p a nx1 vector of first-order sampling probability of 
+#' phase 2 individuals only 
+#' @param pwt a nxn matrix of pairwise sampling probability of 
+#' phase 2 individuals only 
+#' @param R a Nx1 vector of sampling indicator (1 if sampled and 
+#' 0 otherwise) for all phase 1 individuals
 #'
 #' @export
-#' @return list containing `beta` and `sigmasq`, with residual
-#' sum of squares as attributes.
+#' @return The deviance (-2*log-likelihood)
 #'
 #' @examples
 #' data(sim)
-#' ml <- getMLsoln(0.5, Phi, y, X, p, pwt, R)
-getMLsoln <-
-  function(hsq, Phi, y, X, p, pwt, R)
+#' loglik <- calcLL(c(50,-0.08,4.3,0.56), Phi, y, X, p, pwt, R)
+calcLL <-
+  function(param, Phi, y, X, pwt, R)
   {
-    N <- nrow(Phi)
-    if(!is.matrix(X)) X <- as.matrix(X)
-    stopifnot(nrow(X) == N)
-    if(!is.matrix(y)) y <- as.matrix(y)
-    stopifnot(nrow(y) == N)
     
-    # Covariance matrix devide by sigma^2
-    C <- hsq*Phi+(1-hsq)*diag(N)
-    invsqrtC <- chol(solve(C))
+    n <- nrow(Phi)
+    if(!is.matrix(X)) X <- as.matrix(X)
+    stopifnot(nrow(X) == n)
+    if(!is.matrix(y)) y <- as.matrix(y)
+    stopifnot(nrow(y) == n)
+    
+    # Variance-covariance matrix
+    C <- param[3]*Phi+param[4]*diag(n)
     
     sub <- which(R==1)
-    n <- length(sub)
-    ij<-as.matrix(subset(expand.grid(i=1:n,j=1:n),i<j))
-    ii<-ij[,1]
-    jj<-ij[,2]
-    
-    invsqrtC_sub <- invsqrtC[sub,sub]
-    
-    X_sub <- as.matrix(X[sub,,drop=FALSE])
     y_sub <- y[sub]
+    X_sub <- as.matrix(X[sub,])
+    C_sub_inv <- solve(C)[sub,sub]
     
-    dKsi <- invsqrtC_sub[ii,]-invsqrtC_sub[jj,]
-    t1 <- 2*sum(1/pwt[ij]*(dKsi%*%y_sub)*(dKsi%*%X_sub[,1]))
-    t2 <- 2*sum(1/pwt[ij]*(dKsi%*%y_sub)*(dKsi%*%X_sub[,2]))
-    t3 <- 2*sum(1/pwt[ij]*(dKsi%*%X_sub[,1])*(dKsi%*%X_sub[,2]))
-    t4 <- 2*sum(1/pwt[ij]*(dKsi%*%X_sub[,1])^2)
-    t5 <- 2*sum(1/pwt[ij]*(dKsi%*%X_sub[,2])^2)
+    e <-  y_sub-X_sub%*%param[1:2]
+    LL <- -0.5*(determinant(C, logarithm = TRUE)$modulus + t(e)%*%((1/pwt)*C_sub_inv)%*%e)
     
-    beta <- solve(matrix(data=c(t4,t3,t3,t5), nrow=2), c(t1,t2))
-    beta[1] <- (t(y - beta[2]*X[,2])%*%(1/p))/sum(1/p)
+    if (!is.finite(LL)) stop("Oh NO!!!")
     
-    # calculate a bunch of matrices and RSS
-    e <- invsqrtC_sub%*%(y[sub]-as.matrix(X[sub,])%*%beta)
-    rss <- crossprod(e[ii]-e[jj],1/pwt[ij]*(e[ii]-e[jj]))/(N)
+    -2*LL
     
-    sigmasq <- rss / N 
-    
-    # return value
-    result <- list(beta=beta, sigmasq=sigmasq)
-    attr(result, "rss") <- rss
-    
-    result
-  }
-
-#' Calculate log likelihood for a given heritability
-#'
-#' Calculate the log likelihood for a given value of the heritability, `hsq`.
-#'
-#' @param hsq heritability
-#' @param Phi relatedness matrix 
-#' @param y phenotypes 
-#' @param X covariate matrix 
-#' @param p first-order sampling probability for all individuals
-#' @param pwt pairwise sampling probability for sampled individuals
-#' @param R sampling indicator (1 if sampled and 0 otherwise) for all individualsg
-#'
-#' @export
-#' @return The log likelihood value, with the corresponding estimates
-#' of `beta` and `sigmasq` included as attributes.
-#'
-#' @examples
-#' data(sim)
-#' loglik <- calcLL(0.5, Phi, y, X, p, pwt, R)
-#' many_loglik <- calcLL(seq(0, 1, by=0.1), Phi, y, X, p, pwt, R)
-calcLL <-
-  function(hsq, Phi, y, X, p, pwt, R)
-  {
-    if(length(hsq) > 1)
-      return(vapply(hsq, calcLL, 0, Phi, y, X, p, pwt, R))
-    
-    N <- nrow(Phi)
-    
-    # estimate beta and sigmasq
-    MLsoln <- getMLsoln(hsq, Phi, y, X, p, pwt, R)
-    beta <- MLsoln$beta
-    sigmasq <- MLsoln$sigmasq
-    
-    # calculate log likelihood
-    rss <- attr(MLsoln, "rss")
-    
-    LL <- -0.5*(log(det((hsq*Phi+(1-hsq)*diag(N)))) + N*log(rss))
-    
-    attr(LL, "beta") <- beta
-    attr(LL, "sigmasq") <- sigmasq
-    LL
   }
 
 #' Fit a linear mixed model
 #'
 #' Fit a linear mixed model of the form y = Xb + e where e follows a
 #' multivariate normal distribution with mean 0 and variance matrix
-#' `sigmasq_g K + sigmasq_e I`, where `K` is a known kniship
+#' `sigma^2*(h^2*Phi+(1-h)*I)`, where `sigma^2` is the total phenotypic
+#' variance, `h^2` is the heritability,`Phi` is a known kniship
 #' matrix and `I` is the identity matrix.
 #'
-#' @param Phi relatedness matrix 
-#' @param y phenotypes 
-#' @param X covariate matrix 
-#' @param p first-order sampling probability for all individuals
-#' @param pwt pairwise sampling probability for sampled individuals
-#' @param R sampling indicator (1 if sampled and 0 otherwise) for all individuals
-#' @param check_boundary If TRUE, explicitly check log likelihood at 0 and 1.
+#' @param Phi a NxN kinship matrix for all phase 1 individuals
+#' @param y a Nx1 vector of phenotype for all phase 1 individuals
+#' @param X a Nx2 matrix, where the first column is 1 and the second 
+#' column is the genotypes (0, 1 or 2) for all phase 1 individuals
+#' @param p a nx1 vector of first-order sampling probability of 
+#' phase 2 individuals only 
+#' @param pwt a nxn matrix of pairwise sampling probability of 
+#' phase 2 individuals only 
+#' @param R a Nx1 vector of sampling indicator (1 if sampled and 
+#' 0 otherwise) for all phase 1 individuals
 #' @param tol Tolerance for convergence
-#' @param compute_se = if TRUE, return the standard error of the `hsq`
-#' estimate using the Fisher Information matrix of the MLE estimate. The
-#' standard error will be in an `attr` of  `hsq` in the output.
-#' Currently requires `use_cpp = FALSE`, and so if `compute_se=TRUE`
-#' we take `use_cpp=FALSE`.
-#'
-#' @importFrom stats optim
 #'
 #' @export
-#' @return List containing estimates of `beta`, `sigmasq`,
-#' `hsq`, `sigmasq_g`, and `sigmasq_e`, as well as the log
-#' likelihood (`loglik`). If `compute_se=TRUE`, the output also
-#' contains `hsq_se`.
+#' @return a 4x1 vector of population mean, genetic effect, 
+#' total phenotypic variance and heritability
 #'
 #' @examples
 #' data(sim)
 #' result <- fitLMM(Phi, y, X, p, pwt, R)
 #'
-#' # also compute SE
-#' wSE <- fitLMM(Phi, y, X, p, pwt, R, compute_se = TRUE, use_cpp=FALSE)
-#' c(hsq=wSE$hsq, SE=wSE$hsq_se)
-#'
+require(lme4qtl)
+require(minqa)
 fitLMM <-
-  function(Phi, y, X, p, pwt, R, check_boundary=TRUE, tol=1e-4, compute_se = FALSE)
+  function(Phi, y, X, pwt, R, thres=1e-8)
   {
-    N <- nrow(Phi)
+    n <- nrow(Phi)
     if(!is.matrix(X)) X <- as.matrix(X)
-    stopifnot(nrow(X) == N)
+    stopifnot(nrow(X) == n)
     if(!is.matrix(y)) y <- as.matrix(y)
-    stopifnot(nrow(y) == N)
+    stopifnot(nrow(y) == n)
     
+    # Get initial value for beta, sigmasq and heritability using unweighted lme4qtl
+    sub <- which(R==1)
+    df <- data.frame(ID=rownames(Phi[sub,sub]), trait=y[sub], dosage=X[sub,2])
+    m1 <- lme4qtl::relmatLmer(trait ~ dosage + (1|ID), df, relmat = list(ID = Phi[sub,sub]), REML=FALSE)
+    v1 <- lme4qtl::VarProp(m1)
+    param <- c(m1@beta,v1$vcov)
+    if (param[3]<thres) param[3]<-thres
+    if (param[4]<thres) param[4]<-thres
+    
+    lower <- c(-Inf,-Inf,thres,thres)
+    upper <- c(Inf,Inf,Inf,Inf)
     # maximize log likelihood
-    out <- stats::optimize(calcLL, c(0, 1), Phi=Phi, y=y, X=X, p=p, pwt=pwt, R=R, maximum=TRUE, tol=tol)
-    
-    # Use the hessian to get the stanard errors; had to use `optim` here...
-    if(compute_se){
-      calcLL <- function(hsq, Phi, y, X, p, pwt, R){
-        return(-1*calcLL(hsq, Phi, y, X, p, pwt, R))
-      }
-      opt2 <- optim(out$maximum, calcLL, Phi=Phi, y=y, X=X, p=p, pwt=pwt, R=R,
-                    hessian=TRUE, lower = 0, upper = 1, method = "Brent")
-      vc <- solve(opt2$hessian) # var-cov matrix
-      se <- sqrt(diag(vc))        # standard errors
-    }
-    
-    hsq <- out$maximum
-    obj <- out$objective
-    sigmasq <- attr(obj, "sigmasq")
-    
-    result <- list(beta=attr(obj, "beta"),
-                   sigmasq=sigmasq, # total var
-                   hsq=hsq,
-                   sigmasq_g= hsq*sigmasq, # genetic variance
-                   sigmasq_e = (1-hsq)*sigmasq, # residual variance
-                   loglik = as.numeric(obj))
-    if(compute_se) result$hsq_se <- se
-    
-    result
+    out <- minqa::bobyqa(par=param, fn=calcLL, lower = lower, upper = upper,Phi=Phi, y=y, X=X, pwt=pwt, R=R)
+    out
   }
