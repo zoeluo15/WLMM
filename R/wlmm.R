@@ -50,9 +50,9 @@ calcLL <-
 #'
 #' Fit a linear mixed model of the form y = Xb + e where e follows a
 #' multivariate normal distribution with mean 0 and variance matrix
-#' `sigma^2*(h^2*Phi+(1-h)*I)`, where `sigma^2` is the total phenotypic
-#' variance, `h^2` is the heritability,`Phi` is a known kniship
-#' matrix and `I` is the identity matrix.
+#' `sigma_g^2*Phi+sigma_e^2*I`, where `sigma_g^2` is the genetic
+#' variance, `sigma_e^2` is the environmental variance,`Phi` is a 
+#' known kniship matrix and `I` is the identity matrix.
 #'
 #' @param Phi a NxN kinship matrix for all phase 1 individuals
 #' @param y a Nx1 vector of phenotype for all phase 1 individuals
@@ -66,9 +66,9 @@ calcLL <-
 #'
 #' @export
 #' @return a 4x1 vector of population mean, genetic effect, 
-#' genetic variance and environmental variance. Heritability is defined
-#' by genetic variance divided by the the sum of genetic and environmental 
-#' variance
+#' genetic variance and environmental variance. Heritability is 
+#' defined by genetic variance divided by the the sum of genetic 
+#' and environmental variance
 #'
 #' @examples Fit LMM under outcome-dependent sampling
 #' data(sim)
