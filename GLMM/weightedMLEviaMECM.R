@@ -1,3 +1,5 @@
+# Weighted maximumn likelihood estimation via Monte Carlo EM algorithm for generalized linear mixed models
+
 rlatent<-function(mu, sigma2, observed){
   lower<-numeric(length(mu))
   lower[observed==0]<- -Inf
