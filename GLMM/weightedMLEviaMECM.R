@@ -1,6 +1,3 @@
-#!/usr/bin/env Rscript
-.libPaths(new='/nesi/project/uoa02888/Rpackages')
-
 rlatent<-function(mu, sigma2, observed){
   lower<-numeric(length(mu))
   lower[observed==0]<- -Inf
